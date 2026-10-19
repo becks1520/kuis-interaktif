@@ -12,7 +12,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
     <!-- QRCode.js Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <!-- Canvas Confetti Library for Winner Podium -->
+    <!-- SheetJS Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Canvas Confetti Library -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
         body {
@@ -22,42 +24,34 @@
             color: #f8fafc;
             user-select: none;
         }
-        
         .font-game { font-family: 'Fredoka', cursive; }
-
         .glass-panel {
             background: rgba(30, 41, 59, 0.75);
             backdrop-filter: blur(14px);
             border: 1px solid rgba(255, 255, 255, 0.12);
         }
-
         .glass-card {
             background: rgba(255, 255, 255, 0.05);
             backdrop-filter: blur(8px);
             border: 1px solid rgba(255, 255, 255, 0.08);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-
         .player-card { transition: all 0.4s ease; }
         .player-card.answered { border-color: #f59e0b; box-shadow: 0 0 15px rgba(245, 158, 11, 0.4); }
         .player-card.correct { background: rgba(34, 197, 94, 0.25) !important; border-color: #22c55e !important; box-shadow: 0 0 25px rgba(34, 197, 94, 0.6) !important; transform: scale(1.03); }
         .player-card.wrong { background: rgba(239, 68, 68, 0.25) !important; border-color: #ef4444 !important; box-shadow: 0 0 20px rgba(239, 68, 68, 0.5) !important; transform: scale(0.96); opacity: 0.85; }
-
         .btn-option-a { background: linear-gradient(135deg, #ef4444, #dc2626); }
         .btn-option-b { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
         .btn-option-c { background: linear-gradient(135deg, #d97706, #b45309); }
         .btn-option-d { background: linear-gradient(135deg, #16a34a, #15803d); }
-
         @keyframes pulse-ring {
             0% { transform: scale(0.97); opacity: 0.8; }
             50% { transform: scale(1.04); opacity: 1; }
             100% { transform: scale(0.97); opacity: 0.8; }
         }
         .timer-warning { animation: pulse-ring 1s infinite ease-in-out; color: #ef4444 !important; }
-
         .timer-circle-bg { stroke: rgba(255, 255, 255, 0.1); }
         .timer-circle-path { stroke-dasharray: 283; stroke-dashoffset: 0; transition: stroke-dashoffset 1s linear, stroke 0.3s ease; }
-
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
         ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
@@ -65,21 +59,14 @@
 </head>
 <body class="p-3 md:p-6 text-slate-100 flex flex-col justify-between min-h-screen">
 
-    <!-- ========================================== -->
-    <!-- 1. LANDING GATEWAY (MENU PEMILIHAN AWAL) -->
-    <!-- ========================================== -->
+    <!-- LANDING GATEWAY -->
     <div id="landingGateway" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 z-50">
         <div class="glass-panel rounded-3xl p-8 max-w-md w-full text-center shadow-2xl border border-indigo-500/30 space-y-6">
-            <div class="w-20 h-20 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-3xl mx-auto flex items-center justify-center text-4xl shadow-xl">
-                🎮
-            </div>
+            <div class="w-20 h-20 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-3xl mx-auto flex items-center justify-center text-4xl shadow-xl">🎮</div>
             <div>
-                <h1 class="font-game text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-300 to-pink-400 mb-1">
-                    QUIZ ARENA LIVE
-                </h1>
+                <h1 class="font-game text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-300 to-pink-400 mb-1">QUIZ ARENA LIVE</h1>
                 <p class="text-xs text-slate-400">Pilih akses masuk untuk memulai kuis</p>
             </div>
-
             <div class="space-y-3 pt-2">
                 <button onclick="chooseRoleGateway('PLAYER')" class="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 font-bold text-base text-white shadow-lg transition flex items-center justify-center gap-3">
                     <i class="fa-solid fa-mobile-screen-button text-xl"></i> Masuk Sebagai PESERTA
@@ -94,14 +81,10 @@
     <!-- MODAL PIN HOST -->
     <div id="hostPinModal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md hidden items-center justify-center p-4 z-50">
         <div class="glass-panel rounded-3xl p-6 max-w-sm w-full text-center space-y-4 border border-indigo-500/40">
-            <div class="w-12 h-12 bg-indigo-600/30 text-indigo-400 rounded-2xl mx-auto flex items-center justify-center text-xl">
-                <i class="fa-solid fa-lock"></i>
-            </div>
+            <div class="w-12 h-12 bg-indigo-600/30 text-indigo-400 rounded-2xl mx-auto flex items-center justify-center text-xl"><i class="fa-solid fa-lock"></i></div>
             <h3 class="font-game text-xl font-bold text-white">PIN Akses Host</h3>
             <p class="text-xs text-slate-400">Masukkan PIN rahasia admin untuk membuka panel kontrol.</p>
-
             <input type="password" id="hostPinInput" placeholder="••••" maxlength="6" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-center text-xl font-mono tracking-widest text-amber-400 focus:outline-none focus:border-indigo-500">
-
             <div class="flex gap-2 pt-1">
                 <button onclick="closeHostPinModal()" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold text-slate-300">Batal</button>
                 <button onclick="verifyHostPin()" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-bold text-white">Verifikasi</button>
@@ -109,58 +92,40 @@
         </div>
     </div>
 
-
-    <!-- TOP NAV BAR (Hanya muncul setelah login) -->
+    <!-- TOP NAV BAR -->
     <div id="topNavbar" class="glass-panel rounded-2xl p-3 mb-4 flex flex-wrap justify-between items-center gap-3 shadow-xl border border-indigo-500/35 hidden">
         <div class="flex items-center gap-2">
             <span id="connectionBadgeDot" class="w-3 h-3 rounded-full bg-emerald-400"></span>
             <span id="connectionStatusText" class="text-xs font-bold text-slate-300 uppercase tracking-wider">Koneksi Real-Time Aktif</span>
         </div>
-        
         <div class="flex items-center gap-2 bg-slate-900/80 p-1 rounded-xl border border-slate-700">
-            <span id="activeRoleBadge" class="px-4 py-1.5 rounded-lg font-bold text-xs bg-indigo-600 text-white shadow-md">
-                <i class="fa-solid fa-tv mr-1"></i> PANEL HOST
-            </span>
+            <span id="activeRoleBadge" class="px-4 py-1.5 rounded-lg font-bold text-xs bg-indigo-600 text-white shadow-md"><i class="fa-solid fa-tv mr-1"></i> PANEL HOST</span>
         </div>
-
         <div class="flex items-center gap-2">
-            <button onclick="openShareModal()" class="px-3 py-1.5 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-200 text-xs font-semibold flex items-center gap-1.5 transition">
-                <i class="fa-solid fa-qrcode"></i> QR Code & PIN
-            </button>
-            <button id="soundToggle" onclick="toggleSound()" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition" title="Toggle Sound">
-                <i id="soundIcon" class="fa-solid fa-volume-high text-indigo-400"></i>
-            </button>
+            <button onclick="openShareModal()" class="px-3 py-1.5 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-200 text-xs font-semibold flex items-center gap-1.5 transition"><i class="fa-solid fa-qrcode"></i> QR Code & PIN</button>
+            <button id="soundToggle" onclick="toggleSound()" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition"><i id="soundIcon" class="fa-solid fa-volume-high text-indigo-400"></i></button>
         </div>
     </div>
 
-    <!-- ========================================== -->
-    <!-- VIEW 1: HOST DISPLAY (PROYEKTOR / TV SCREEN) -->
-    <!-- ========================================== -->
+    <!-- HOST VIEW -->
     <div id="hostView" class="flex-1 flex flex-col gap-5 hidden">
         <header class="glass-panel rounded-2xl p-4 flex flex-wrap justify-between items-center gap-4">
             <div class="flex items-center gap-3">
                 <div class="bg-gradient-to-tr from-indigo-500 to-purple-500 p-3 rounded-xl shadow-lg font-game text-2xl">🎮</div>
                 <div>
-                    <h1 class="font-game text-2xl md:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-300 to-pink-400">
-                        QUIZ ARENA - HOST
-                    </h1>
-                    <p class="text-xs text-slate-400 flex items-center gap-2">
-                        <span>Kode Ruangan PIN:</span>
-                        <strong id="hostPinDisplay" class="text-amber-400 text-base tracking-widest font-mono bg-slate-900/80 px-2.5 py-0.5 rounded border border-amber-500/30">QUIZ88</strong>
+                    <h1 class="font-game text-2xl md:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-300 to-pink-400">QUIZ ARENA - HOST</h1>
+                    <p class="text-xs text-slate-400 flex items-center gap-2 flex-wrap">
+                        <span>PIN Ruangan:</span>
+                        <input type="text" id="inputCustomRoomPin" value="QUIZ88" oninput="updateRoomPin(this.value)" class="bg-slate-900 text-amber-400 font-mono font-bold text-xs px-2 py-0.5 rounded border border-amber-500/30 w-28 text-center uppercase focus:outline-none focus:border-amber-400" title="Ubah PIN Ruangan">
+                        <button onclick="openShareModal()" class="text-xs text-indigo-300 hover:text-white underline"><i class="fa-solid fa-qrcode"></i> Tampilkan QR</button>
                     </p>
                 </div>
             </div>
-
             <div class="flex items-center gap-3 flex-wrap">
                 <div class="flex bg-slate-900/80 p-1 rounded-xl border border-slate-700">
-                    <button id="btnHostTabGame" onclick="switchHostTab('game')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white">
-                        <i class="fa-solid fa-gamepad"></i> Arena Kuis
-                    </button>
-                    <button id="btnHostTabManage" onclick="switchHostTab('manage')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white">
-                        <i class="fa-solid fa-folder-plus"></i> Kelola & Upload Soal
-                    </button>
+                    <button id="btnHostTabGame" onclick="switchHostTab('game')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition"><i class="fa-solid fa-gamepad"></i> Arena Kuis</button>
+                    <button id="btnHostTabManage" onclick="switchHostTab('manage')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition"><i class="fa-solid fa-folder-plus"></i> Kelola Soal</button>
                 </div>
-
                 <div class="flex items-center gap-2 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-700">
                     <label for="timerSetting" class="text-xs text-slate-400 font-semibold"><i class="fa-solid fa-clock text-indigo-400"></i> Timer:</label>
                     <input type="number" id="timerSetting" value="15" min="5" max="60" onchange="updateDefaultTime(this.value)" class="w-12 bg-slate-800 text-center font-bold text-xs text-indigo-300 rounded border border-slate-600 focus:outline-none">
@@ -169,36 +134,35 @@
             </div>
         </header>
 
-        <!-- HOST TAB 1: ARENA KUIS -->
         <div id="hostTabGameSection" class="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
             <section class="lg:col-span-8 flex flex-col gap-5">
                 <div class="glass-panel rounded-3xl p-6 md:p-8 flex flex-col justify-between relative overflow-hidden shadow-2xl flex-1">
                     <div>
                         <div class="flex justify-between items-center mb-4">
-                            <span id="hostQuestionCategory" class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase">
-                                Soal 1 / 5
-                            </span>
+                            <span id="hostQuestionCategory" class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase">Lobby / Menunggu Peserta</span>
                             <div class="flex gap-2">
-                                <button id="btnStartTimer" onclick="startTimer()" class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition">
-                                    <i class="fa-solid fa-play"></i> Mulai Timer
+                                <button id="btnStartGameMaster" onclick="startMasterGame()" class="px-4 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md transition flex items-center gap-1.5">
+                                    <i class="fa-solid fa-play-circle text-sm"></i> Mulai Kuis (Buka Soal)
                                 </button>
-                                <button id="btnPauseTimer" onclick="pauseTimer()" class="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-md transition">
-                                    <i class="fa-solid fa-pause"></i> Jeda
-                                </button>
-                                <button onclick="resetTimer()" class="px-3 py-1.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold text-xs transition">
-                                    <i class="fa-solid fa-rotate-left"></i> Reset
-                                </button>
+                                <button id="btnStartTimer" onclick="startTimer()" class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition hidden"><i class="fa-solid fa-play"></i> Mulai Timer</button>
+                                <button id="btnPauseTimer" onclick="pauseTimer()" class="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-md transition hidden"><i class="fa-solid fa-pause"></i> Jeda</button>
+                                <button onclick="resetTimer()" class="px-3 py-1.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold text-xs transition"><i class="fa-solid fa-rotate-left"></i> Reset</button>
                             </div>
                         </div>
 
-                        <h2 id="hostQuestionText" class="text-xl md:text-2xl font-bold text-white mb-6 leading-relaxed">
-                            Memuat Pertanyaan...
-                        </h2>
+                        <div id="hostGameNoticeBox" class="py-8 text-center space-y-3">
+                            <div class="w-16 h-16 bg-purple-600/20 text-purple-300 rounded-full flex items-center justify-center text-3xl mx-auto border border-purple-500/30 animate-pulse"><i class="fa-solid fa-users-rectangle"></i></div>
+                            <h2 class="text-2xl font-bold text-white">Menunggu Peserta Bergabung di Ruangan</h2>
+                            <p class="text-xs text-slate-400 max-w-md mx-auto">Peserta di HP otomatis terhubung dengan PIN ruangan. Klik <strong>"Mulai Kuis (Buka Soal)"</strong> jika semua peserta sudah masuk.</p>
+                        </div>
 
-                        <div id="hostOptionsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                        <div id="hostQuestionContainerBox" class="hidden">
+                            <h2 id="hostQuestionText" class="text-xl md:text-2xl font-bold text-white mb-6 leading-relaxed">Memuat Pertanyaan...</h2>
+                            <div id="hostOptionsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                        </div>
                     </div>
 
-                    <div class="mt-6 pt-4 border-t border-slate-800 flex items-center gap-4">
+                    <div id="hostTimerSectionBox" class="mt-6 pt-4 border-t border-slate-800 flex items-center gap-4 hidden">
                         <div class="relative w-16 h-16 flex-shrink-0 flex items-center justify-center">
                             <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                                 <circle class="timer-circle-bg" cx="50" cy="50" r="45" stroke-width="8" fill="none" />
@@ -206,7 +170,6 @@
                             </svg>
                             <span id="hostTimerText" class="absolute font-game text-xl font-bold text-indigo-400">15</span>
                         </div>
-
                         <div class="flex-1">
                             <div class="flex justify-between items-center mb-1">
                                 <span class="text-xs font-semibold text-slate-400">SISA WAKTU</span>
@@ -220,16 +183,10 @@
                 </div>
 
                 <div class="glass-panel rounded-2xl p-4 flex flex-wrap justify-between items-center gap-3">
-                    <button onclick="simulateAllAnswers()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-bold text-indigo-300 transition">
-                        <i class="fa-solid fa-robot"></i> Simulasi Jawaban Bot
-                    </button>
+                    <button onclick="simulateAllAnswers()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-bold text-indigo-300 transition"><i class="fa-solid fa-robot"></i> Simulasi Jawaban Bot</button>
                     <div class="flex gap-3">
-                        <button id="btnReveal" onclick="revealAnswers()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-xs shadow-lg transition">
-                            <i class="fa-solid fa-check-circle"></i> PERIKSA JAWABAN
-                        </button>
-                        <button onclick="nextQuestion()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs shadow-lg transition">
-                            Soal Berikutnya <i class="fa-solid fa-arrow-right ml-1"></i>
-                        </button>
+                        <button id="btnReveal" onclick="revealAnswers()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-xs shadow-lg transition" disabled><i class="fa-solid fa-check-circle"></i> PERIKSA JAWABAN</button>
+                        <button onclick="nextQuestion()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs shadow-lg transition">Soal Berikutnya <i class="fa-solid fa-arrow-right ml-1"></i></button>
                     </div>
                 </div>
             </section>
@@ -237,38 +194,33 @@
             <section class="lg:col-span-4 flex flex-col gap-5">
                 <div class="glass-panel rounded-3xl p-5 flex flex-col flex-1">
                     <div class="flex justify-between items-center mb-3">
-                        <h3 class="font-game text-base font-bold text-indigo-300">
-                            <i class="fa-solid fa-users text-indigo-400"></i> Peserta (<span id="connectedPeerCount">0</span>)
-                        </h3>
+                        <h3 class="font-game text-base font-bold text-indigo-300"><i class="fa-solid fa-users text-indigo-400"></i> Peserta (<span id="connectedPeerCount">0</span>)</h3>
                         <span id="answeredCount" class="text-xs bg-slate-800 border border-slate-700 text-slate-300 px-2 py-0.5 rounded-full font-semibold">0 / 0 Menjawab</span>
                     </div>
                     <div id="hostParticipantsGrid" class="grid grid-cols-2 gap-2.5 max-h-[300px] overflow-y-auto pr-1"></div>
                 </div>
 
-                <div class="glass-panel rounded-3xl p-5">
-                    <div class="flex justify-between items-center mb-2">
+                <div class="glass-panel rounded-3xl p-5 space-y-3">
+                    <div class="flex justify-between items-center">
                         <h3 class="font-game text-base font-bold text-amber-300"><i class="fa-solid fa-trophy text-amber-400"></i> Leaderboard</h3>
-                        <button onclick="showPodiumModal()" class="text-xs px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 font-bold transition">
-                            <i class="fa-solid fa-crown"></i> Podium
-                        </button>
+                        <button onclick="showPodiumModal()" class="text-xs px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 font-bold transition"><i class="fa-solid fa-crown"></i> Podium</button>
                     </div>
-                    <div id="hostLeaderboardList" class="space-y-1.5 max-h-[170px] overflow-y-auto pr-1"></div>
+                    <div id="hostLeaderboardList" class="space-y-1.5 max-h-[140px] overflow-y-auto pr-1"></div>
+                    <button onclick="downloadScoreReport()" class="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-file-excel"></i> Unduh Rekapan Nilai (.xlsx)
+                    </button>
                 </div>
             </section>
         </div>
 
-        <!-- HOST TAB 2: KELOLA & UPLOAD SOAL -->
         <div id="hostTabManageSection" class="glass-panel rounded-3xl p-6 hidden flex-col gap-6">
             <div class="flex flex-wrap justify-between items-center border-b border-slate-700/60 pb-4">
                 <div>
                     <h2 class="font-game text-xl font-bold text-white"><i class="fa-solid fa-sliders text-indigo-400"></i> Manajemen Bank Soal</h2>
-                    <p class="text-xs text-slate-400">Tambah atau upload file JSON soal kuis</p>
+                    <p class="text-xs text-slate-400">Tambah manual atau upload file Excel / CSV / JSON</p>
                 </div>
-                <button onclick="downloadQuestionTemplate()" class="px-3.5 py-2 rounded-xl bg-indigo-600/30 border border-indigo-500/40 text-indigo-200 text-xs font-bold hover:bg-indigo-600/50 transition">
-                    <i class="fa-solid fa-download"></i> Unduh Template JSON
-                </button>
+                <button onclick="downloadExcelTemplate()" class="px-3.5 py-2 rounded-xl bg-emerald-600/30 border border-emerald-500/40 text-emerald-200 text-xs font-bold hover:bg-emerald-600/50 transition"><i class="fa-solid fa-file-excel"></i> Unduh Template Excel</button>
             </div>
-
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 <div class="lg:col-span-5 bg-slate-900/80 p-5 rounded-2xl border border-slate-800 space-y-3">
                     <h3 class="font-bold text-sm text-indigo-300 mb-2"><i class="fa-solid fa-plus-circle"></i> Tambah Soal Baru</h3>
@@ -290,8 +242,8 @@
                     </div>
                     <button onclick="addSingleQuestion()" class="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-bold text-xs text-white shadow-md transition">Tambahkan Soal</button>
                     <div class="pt-3 border-t border-slate-800">
-                        <label class="text-xs font-bold text-amber-300 block mb-1.5">Import Soal JSON:</label>
-                        <input type="file" id="fileInputQuestions" accept=".json" onchange="handleFileUpload(event)" class="text-xs text-slate-400 cursor-pointer">
+                        <label class="text-xs font-bold text-amber-300 block mb-1.5"><i class="fa-solid fa-file-excel"></i> Import Soal Excel / CSV / JSON:</label>
+                        <input type="file" id="fileInputQuestions" accept=".xlsx, .xls, .csv, .json" onchange="handleFileUpload(event)" class="text-xs text-slate-400 cursor-pointer">
                     </div>
                 </div>
                 <div class="lg:col-span-7 flex flex-col">
@@ -302,42 +254,37 @@
         </div>
     </div>
 
-
-    <!-- ========================================== -->
-    <!-- VIEW 2: PLAYER DISPLAY (TAMPILAN HP PESERTA) -->
-    <!-- ========================================== -->
+    <!-- PLAYER VIEW -->
     <div id="playerView" class="flex-1 flex flex-col justify-center items-center max-w-md mx-auto w-full hidden">
         <div id="playerJoinScreen" class="glass-panel rounded-3xl p-6 w-full text-center shadow-2xl border border-indigo-500/30">
             <div class="w-16 h-16 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-2xl mx-auto flex items-center justify-center text-3xl mb-3 shadow-lg">📱</div>
             <h2 class="font-game text-2xl font-bold text-white mb-1">Masuk Kuis</h2>
-            <p class="text-xs text-slate-400 mb-5">Masukkan Kode Ruangan & Nama Kamu</p>
-
+            <p class="text-xs text-slate-400 mb-5">Masukkan Nama & Pilih Avatar Kamu</p>
             <div class="space-y-4 text-left">
+                <!-- PIN Ruangan Otomatis Terisi (Read-Only / Terkunci dari Host) -->
                 <div>
-                    <label class="text-xs font-semibold text-slate-300 block mb-1"><i class="fa-solid fa-key text-amber-400"></i> Kode Ruangan PIN:</label>
-                    <input type="text" id="playerInputRoomCode" value="QUIZ88" placeholder="QUIZ88" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-center text-lg font-mono font-bold tracking-widest text-amber-300 uppercase">
+                    <label class="text-xs font-semibold text-slate-300 block mb-1"><i class="fa-solid fa-key text-amber-400"></i> Kode PIN Ruangan (Otomatis):</label>
+                    <input type="text" id="playerInputRoomCode" readonly class="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-4 py-2.5 text-center text-lg font-mono font-bold tracking-widest text-amber-400 cursor-not-allowed uppercase" value="QUIZ88">
                 </div>
                 <div>
                     <label class="text-xs font-semibold text-slate-300 block mb-1"><i class="fa-solid fa-user text-indigo-400"></i> Nama Peserta:</label>
-                    <input type="text" id="playerInputName" placeholder="Nama Kamu" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white">
+                    <input type="text" id="playerInputName" placeholder="Nama Lengkap Kamu" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500">
                 </div>
                 <div>
                     <label class="text-xs font-semibold text-slate-300 block mb-1"><i class="fa-solid fa-face-smile text-purple-400"></i> Pilih Avatar:</label>
                     <div id="avatarPicker" class="flex gap-2 overflow-x-auto pb-2 pt-1"></div>
                 </div>
-                <button onclick="playerJoinGame()" class="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 font-bold text-sm text-white shadow-lg shadow-indigo-600/30 transition">
-                    HUBUNGKAN KE HOST
-                </button>
+                <button onclick="playerJoinGame()" class="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 font-bold text-sm text-white shadow-lg shadow-indigo-600/30 transition">HUBUNGKAN KE HOST</button>
             </div>
         </div>
 
         <div id="playerWaitingScreen" class="glass-panel rounded-3xl p-8 w-full text-center shadow-2xl hidden">
             <div id="playerWaitingAvatar" class="text-6xl mb-3 animate-bounce">🦊</div>
             <h3 id="playerWaitingName" class="font-game text-2xl font-bold text-white mb-1">Halo!</h3>
-            <p class="text-sm text-indigo-300 font-semibold mb-6">Terhubung! Menunggu kuis dimulai...</p>
+            <p class="text-sm text-indigo-300 font-semibold mb-6">Berhasil Terhubung! Menunggu Host memulai kuis...</p>
             <div class="bg-slate-900/85 border border-slate-800 rounded-2xl p-4 flex items-center justify-center gap-3">
                 <i class="fa-solid fa-spinner fa-spin text-indigo-400 text-xl"></i>
-                <span class="text-xs text-slate-300">Layar HP otomatis memperbarui soal...</span>
+                <span class="text-xs text-slate-300">Soal akan muncul otomatis di HP saat kuis dimulai.</span>
             </div>
         </div>
 
@@ -347,11 +294,8 @@
                     <span id="playerCurrentAvatar" class="text-xl">🦊</span>
                     <span id="playerCurrentName" class="font-bold text-white">Nama</span>
                 </div>
-                <div class="bg-indigo-950/80 border border-indigo-800 px-3 py-1 rounded-xl text-indigo-300 font-bold">
-                    <span id="playerCurrentScore">0</span> Pts
-                </div>
+                <div class="bg-indigo-950/80 border border-indigo-800 px-3 py-1 rounded-xl text-indigo-300 font-bold"><span id="playerCurrentScore">0</span> Pts</div>
             </div>
-
             <div class="glass-panel rounded-2xl p-4">
                 <div class="flex justify-between items-center text-xs text-slate-400 font-semibold mb-2">
                     <span id="playerQuestionNum" class="text-indigo-300 font-bold">Soal 1</span>
@@ -359,7 +303,6 @@
                 </div>
                 <h3 id="playerQuestionText" class="text-sm md:text-base font-bold text-white leading-snug">Memuat pertanyaan...</h3>
             </div>
-
             <div id="playerButtonsContainer" class="grid grid-cols-1 gap-2.5">
                 <button onclick="playerSubmitAnswer('A')" class="option-btn btn-option-a p-3.5 rounded-2xl font-semibold text-sm text-white shadow-lg flex items-center justify-between active:scale-95 transition"><span id="playerOptA_text">▲ A</span><span class="text-xs bg-black/20 px-2 py-1 rounded-lg">A</span></button>
                 <button onclick="playerSubmitAnswer('B')" class="option-btn btn-option-b p-3.5 rounded-2xl font-semibold text-sm text-white shadow-lg flex items-center justify-between active:scale-95 transition"><span id="playerOptB_text">◆ B</span><span class="text-xs bg-black/20 px-2 py-1 rounded-lg">B</span></button>
@@ -402,9 +345,9 @@
                 <h3 class="font-game text-lg font-bold text-white"><i class="fa-solid fa-qrcode text-amber-400"></i> Gabung Kuis</h3>
                 <button onclick="closeShareModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
-            <p class="text-xs text-slate-300">Scan QR Code ini dari HP peserta atau bagikan link:</p>
+            <p class="text-xs text-slate-300">Scan QR Code ini dari HP peserta atau gunakan link:</p>
             <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-3">
-                <span class="text-xs text-slate-400 uppercase tracking-wider block font-semibold">PIN RUANGAN:</span>
+                <span class="text-xs text-slate-400 uppercase tracking-wider block font-semibold">PIN RUANGAN AKTIF:</span>
                 <span id="modalPinDisplay" class="font-mono text-3xl font-black text-amber-400 tracking-widest">QUIZ88</span>
             </div>
             <div class="flex justify-center p-3 bg-white rounded-2xl shadow-inner max-w-[180px] mx-auto">
@@ -428,8 +371,7 @@
 
 
     <script>
-        // --- PASSWORD / PIN HOST ---
-        const SECRET_HOST_PIN = "1234"; // Ganti PIN Admin sesuai keinginan Anda di sini
+        const SECRET_HOST_PIN = "1234";
 
         class SoundFX {
             constructor() { this.ctx = null; this.enabled = true; }
@@ -473,7 +415,8 @@
         let timerRemaining = 15;
         let timerInterval = null;
         let isAnswersRevealed = false;
-        let roomCode = "QUIZ88";
+        let roomCode = localStorage.getItem('quiz_active_room_pin') || "QUIZ88";
+        let isGameStarted = false;
         let myPlayerProfile = null;
 
         const quizChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('quiz_arena_channel') : null;
@@ -490,11 +433,24 @@
                 if (e.key === 'quiz_arena_msg' && e.newValue) {
                     try { handleIncomingMessage(JSON.parse(e.newValue)); } catch (err) {}
                 }
+                if (e.key === 'quiz_active_room_pin' && e.newValue) {
+                    roomCode = e.newValue;
+                    const pinInputEl = document.getElementById('playerInputRoomCode');
+                    if (pinInputEl) pinInputEl.value = roomCode;
+                }
             });
         }
 
         function handleIncomingMessage(data) {
-            if (!data || data.roomCode !== roomCode) return;
+            if (!data) return;
+
+            if (data.activePin) {
+                roomCode = data.activePin;
+                localStorage.setItem('quiz_active_room_pin', roomCode);
+                const pinInputEl = document.getElementById('playerInputRoomCode');
+                if (pinInputEl) pinInputEl.value = roomCode;
+            }
+
             if (currentRole === 'HOST') {
                 if (data.type === 'PLAYER_JOINED') {
                     const existing = players.find(p => p.id === data.player.id);
@@ -515,8 +471,8 @@
         function broadcastHostState() {
             if (currentRole !== 'HOST') return;
             sendBroadcastMsg({
-                type: 'HOST_STATE_UPDATE', currentQuestionIdx, timerRemaining, defaultTime,
-                isAnswersRevealed, question: questions[currentQuestionIdx] || null, players, totalQuestions: questions.length
+                type: 'HOST_STATE_UPDATE', activePin: roomCode, currentQuestionIdx, timerRemaining, defaultTime,
+                isAnswersRevealed, isGameStarted, question: questions[currentQuestionIdx] || null, players, totalQuestions: questions.length
             });
             document.getElementById('connectedPeerCount').innerText = players.length;
         }
@@ -525,16 +481,9 @@
             currentQuestionIdx = data.currentQuestionIdx;
             timerRemaining = data.timerRemaining;
             isAnswersRevealed = data.isAnswersRevealed;
+            isGameStarted = data.isGameStarted;
             const q = data.question;
             if (!q) return;
-
-            document.getElementById('playerQuestionNum').innerText = `Soal ${currentQuestionIdx + 1} / ${data.totalQuestions}`;
-            document.getElementById('playerTimerDisplay').innerText = `${timerRemaining}s`;
-            document.getElementById('playerQuestionText').innerText = q.question;
-            document.getElementById('playerOptA_text').innerText = `▲ ${q.options.A}`;
-            document.getElementById('playerOptB_text').innerText = `◆ ${q.options.B}`;
-            document.getElementById('playerOptC_text').innerText = `● ${q.options.C}`;
-            document.getElementById('playerOptD_text').innerText = `■ ${q.options.D}`;
 
             if (myPlayerProfile) {
                 const updatedMe = data.players.find(p => p.id === myPlayerProfile.id);
@@ -542,6 +491,20 @@
                     myPlayerProfile = updatedMe;
                     document.getElementById('playerCurrentScore').innerText = updatedMe.score;
                 }
+
+                if (!isGameStarted) {
+                    showPlayerScreen('playerWaitingScreen');
+                    return;
+                }
+
+                document.getElementById('playerQuestionNum').innerText = `Soal ${currentQuestionIdx + 1} / ${data.totalQuestions}`;
+                document.getElementById('playerTimerDisplay').innerText = `${timerRemaining}s`;
+                document.getElementById('playerQuestionText').innerText = q.question;
+                document.getElementById('playerOptA_text').innerText = `▲ ${q.options.A}`;
+                document.getElementById('playerOptB_text').innerText = `◆ ${q.options.B}`;
+                document.getElementById('playerOptC_text').innerText = `● ${q.options.C}`;
+                document.getElementById('playerOptD_text').innerText = `■ ${q.options.D}`;
+
                 if (isAnswersRevealed) {
                     showPlayerScreen('playerResultScreen');
                     document.getElementById('playerTotalScoreResult').innerText = `${myPlayerProfile.score} Pts`;
@@ -573,9 +536,21 @@
             initRealtimeEngine();
             initAvatarPicker();
             generateQRCode();
+            
+            const pinInputHost = document.getElementById('inputCustomRoomPin');
+            if (pinInputHost) pinInputHost.value = roomCode;
+            document.getElementById('modalPinDisplay').innerText = roomCode;
         };
 
-        // --- GATEWAY & PIN HOST SECURITY ---
+        function updateRoomPin(newPin) {
+            const cleanPin = newPin.trim().toUpperCase();
+            if (!cleanPin) return;
+            roomCode = cleanPin;
+            localStorage.setItem('quiz_active_room_pin', roomCode);
+            document.getElementById('modalPinDisplay').innerText = roomCode;
+            broadcastHostState();
+        }
+
         function chooseRoleGateway(role) {
             audio.click();
             currentRole = role;
@@ -591,7 +566,15 @@
                 document.getElementById('playerView').classList.remove('hidden');
                 document.getElementById('hostView').classList.add('hidden');
                 document.getElementById('activeRoleBadge').innerHTML = `<i class="fa-solid fa-mobile-screen-button mr-1"></i> LAYAR PESERTA`;
+                
+                // Ambil PIN terbaru otomatis dan kunci di layar peserta
+                const latestPin = localStorage.getItem('quiz_active_room_pin') || roomCode;
+                roomCode = latestPin;
+                const pinInputEl = document.getElementById('playerInputRoomCode');
+                if (pinInputEl) pinInputEl.value = roomCode;
+                
                 showPlayerScreen('playerJoinScreen');
+                sendBroadcastMsg({ type: 'REQUEST_SYNC' });
             }
         }
 
@@ -625,7 +608,40 @@
             document.getElementById('soundIcon').className = audio.enabled ? "fa-solid fa-volume-high text-indigo-400" : "fa-solid fa-volume-xmark text-slate-500";
         }
 
-        // --- HOST & PLAYER LOGIC REMAINS INTEGRATED ---
+        function switchHostTab(tab) {
+            audio.click();
+            const tabGame = document.getElementById('hostTabGameSection');
+            const tabManage = document.getElementById('hostTabManageSection');
+            const btnGame = document.getElementById('btnHostTabGame');
+            const btnManage = document.getElementById('btnHostTabManage');
+
+            if (tab === 'game') {
+                tabGame.classList.remove('hidden');
+                tabManage.classList.add('hidden');
+                btnGame.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition";
+                btnManage.className = "px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition";
+            } else {
+                tabGame.classList.add('hidden');
+                tabManage.classList.remove('hidden');
+                btnManage.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition";
+                btnGame.className = "px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition";
+                renderManageQuestionsList();
+            }
+        }
+
+        function startMasterGame() {
+            isGameStarted = true;
+            audio.click();
+            document.getElementById('hostGameNoticeBox').classList.add('hidden');
+            document.getElementById('hostQuestionContainerBox').classList.remove('hidden');
+            document.getElementById('hostTimerSectionBox').classList.remove('hidden');
+            document.getElementById('btnStartGameMaster').classList.add('hidden');
+            document.getElementById('btnStartTimer').classList.remove('hidden');
+            document.getElementById('btnPauseTimer').classList.remove('hidden');
+            document.getElementById('btnReveal').removeAttribute('disabled');
+            broadcastHostState();
+        }
+
         function renderHostQuestion() {
             if (!questions || questions.length === 0) return;
             const q = questions[currentQuestionIdx];
@@ -642,7 +658,7 @@
             }
             isAnswersRevealed = false;
             resetTimer();
-            broadcastHostState();
+            if (isGameStarted) broadcastHostState();
         }
 
         function renderHostParticipants() {
@@ -685,7 +701,7 @@
         }
 
         function revealAnswers() {
-            if (isAnswersRevealed) return;
+            if (isAnswersRevealed || !isGameStarted) return;
             pauseTimer(); isAnswersRevealed = true;
             const q = questions[currentQuestionIdx];
             document.getElementById(`host-badge-correct-${q.correct}`)?.classList.remove('hidden');
@@ -698,6 +714,7 @@
         }
 
         function nextQuestion() {
+            if (!isGameStarted) return;
             currentQuestionIdx = (currentQuestionIdx + 1) % questions.length;
             players.forEach(p => { p.currentAnswer = null; p.isCorrect = null; });
             audio.click(); renderHostQuestion(); renderHostParticipants();
@@ -705,7 +722,7 @@
 
         function updateDefaultTime(val) { defaultTime = parseInt(val) || 15; resetTimer(); }
         function startTimer() {
-            if (timerInterval) return;
+            if (timerInterval || !isGameStarted) return;
             audio.click();
             timerInterval = setInterval(() => {
                 if (timerRemaining > 0) {
@@ -733,6 +750,7 @@
                 list.appendChild(item);
             });
         }
+
         function addSingleQuestion() {
             const q = document.getElementById('inputQuestionText').value.trim();
             const a = document.getElementById('inputOptA').value.trim();
@@ -743,19 +761,95 @@
             questions.push({ id: Date.now(), question: q, options: { A: a, B: b, C: c, D: d }, correct: document.getElementById('inputCorrectAnswer').value });
             renderManageQuestionsList(); renderHostQuestion(); audio.click();
         }
+
         function deleteQuestion(idx) {
             if (questions.length <= 1) return alert("Minimal 1 soal!");
             questions.splice(idx, 1); renderManageQuestionsList(); renderHostQuestion(); audio.click();
         }
-        function downloadQuestionTemplate() {
-            const a = document.createElement('a'); a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(questions, null, 2));
-            a.download = "template_soal.json"; a.click();
+
+        function downloadScoreReport() {
+            if (players.length === 0) {
+                alert("Belum ada peserta yang terdaftar atau mengikuti kuis.");
+                return;
+            }
+            const sorted = [...players].sort((a, b) => b.score - a.score);
+            const reportData = sorted.map((p, idx) => ({
+                "Peringkat": idx + 1,
+                "Nama Peserta": p.name,
+                "Avatar": p.avatar,
+                "Total Skor (Pts)": p.score,
+                "Kode Ruangan": roomCode
+            }));
+            const worksheet = XLSX.utils.json_to_sheet(reportData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "RekapNilaiKuis");
+            XLSX.writeFile(workbook, `Rekap_Nilai_Kuis_${roomCode}.xlsx`);
+            audio.click();
         }
+
+        function downloadExcelTemplate() {
+            const templateData = [
+                { question: "Contoh: Apa ibukota Indonesia?", optA: "Bandung", optB: "Jakarta", optC: "Surabaya", optD: "Medan", correct: "B" },
+                { question: "Contoh: Hasil dari 2 + 2 adalah...", optA: "3", optB: "4", optC: "5", optD: "6", correct: "B" }
+            ];
+            const worksheet = XLSX.utils.json_to_sheet(templateData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "SoalKuis");
+            XLSX.writeFile(workbook, "template_soal_kuis.xlsx");
+        }
+
         function handleFileUpload(e) {
-            const file = e.target.files[0]; if (!file) return;
-            const r = new FileReader(); r.onload = (evt) => {
-                try { questions = JSON.parse(evt.target.result); renderManageQuestionsList(); renderHostQuestion(); alert("Berhasil impor soal!"); } catch (err) { alert("File JSON salah."); }
-            }; r.readAsText(file);
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            const fileName = file.name.toLowerCase();
+            if (fileName.endsWith('.json')) {
+                reader.onload = (evt) => {
+                    try {
+                        questions = JSON.parse(evt.target.result);
+                        renderManageQuestionsList(); renderHostQuestion(); alert("Berhasil impor soal JSON!");
+                    } catch (err) { alert("Format JSON tidak valid."); }
+                };
+                reader.readAsText(file);
+            } else {
+                reader.onload = (evt) => {
+                    try {
+                        const data = new Uint8Array(evt.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const firstSheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[firstSheetName];
+                        const jsonRows = XLSX.utils.sheet_to_json(worksheet);
+                        if (jsonRows.length === 0) { alert("File kosong."); return; }
+                        let newQuestions = [];
+                        jsonRows.forEach((row, index) => {
+                            const qText = row.question || row.Pertanyaan || row.Soal;
+                            const a = row.optA || row.A || row.Pilihan_A;
+                            const b = row.optB || row.B || row.Pilihan_B;
+                            const c = row.optC || row.C || row.Pilihan_C;
+                            const d = row.optD || row.D || row.Pilihan_D;
+                            let corr = (row.correct || row.Kunci || row.Jawaban_Benar || "A").toString().trim().toUpperCase();
+                            if (qText && a && b && c && d) {
+                                newQuestions.push({
+                                    id: Date.now() + index,
+                                    question: qText,
+                                    options: { A: a, B: b, C: c, D: d },
+                                    correct: ['A', 'B', 'C', 'D'].includes(corr) ? corr : 'A'
+                                });
+                            }
+                        });
+                        if (newQuestions.length > 0) {
+                            questions = newQuestions;
+                            currentQuestionIdx = 0;
+                            renderManageQuestionsList();
+                            renderHostQuestion();
+                            alert(`Berhasil mengimpor ${newQuestions.length} soal!`);
+                        } else {
+                            alert("Format kolom Excel tidak sesuai.");
+                        }
+                    } catch (err) { alert("Kesalahan membaca file."); }
+                };
+                reader.readAsArrayBuffer(file);
+            }
         }
 
         let selectedAvatar = "🦊";
@@ -768,14 +862,20 @@
                 picker.appendChild(btn);
             });
         }
+
         function showPlayerScreen(sId) {
             ['playerJoinScreen', 'playerWaitingScreen', 'playerGameScreen', 'playerLockedScreen', 'playerResultScreen'].forEach(s => {
                 document.getElementById(s).classList.toggle('hidden', s !== sId);
             });
         }
+
         function playerJoinGame() {
             const name = document.getElementById('playerInputName').value.trim();
+            const activeHostPin = localStorage.getItem('quiz_active_room_pin') || roomCode;
+
             if (!name) return alert("Masukkan nama kamu!");
+
+            roomCode = activeHostPin;
             myPlayerProfile = { id: Date.now(), name: name, score: 0, currentAnswer: null, isCorrect: null, avatar: selectedAvatar };
             audio.click();
             document.getElementById('playerWaitingName').innerText = `Halo, ${name}!`;
@@ -786,8 +886,9 @@
             sendBroadcastMsg({ type: 'PLAYER_JOINED', player: myPlayerProfile });
             sendBroadcastMsg({ type: 'REQUEST_SYNC' });
         }
+
         function playerSubmitAnswer(ans) {
-            if (!myPlayerProfile || myPlayerProfile.currentAnswer || isAnswersRevealed) return;
+            if (!myPlayerProfile || myPlayerProfile.currentAnswer || isAnswersRevealed || !isGameStarted) return;
             audio.click(); triggerVibration([50]); myPlayerProfile.currentAnswer = ans;
             showPlayerScreen('playerLockedScreen');
             sendBroadcastMsg({ type: 'PLAYER_SUBMIT_ANSWER', playerId: myPlayerProfile.id, answer: ans });
