@@ -1,0 +1,1390 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Arena - Multi-Screen Quiz System</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- QRCode.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Canvas Confetti Library for Winner Podium -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #311042 100%);
+            min-height: 100vh;
+            color: #f8fafc;
+            user-select: none;
+        }
+        
+        .font-game {
+            font-family: 'Fredoka', cursive;
+        }
+
+        /* Glassmorphism effects */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.75);
+            backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Player card states on Host */
+        .player-card {
+            transition: all 0.4s ease;
+        }
+
+        .player-card.answered {
+            border-color: #f59e0b;
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+        }
+
+        .player-card.correct {
+            background: rgba(34, 197, 94, 0.25) !important;
+            border-color: #22c55e !important;
+            box-shadow: 0 0 25px rgba(34, 197, 94, 0.6) !important;
+            transform: scale(1.03);
+        }
+
+        .player-card.wrong {
+            background: rgba(239, 68, 68, 0.25) !important;
+            border-color: #ef4444 !important;
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.5) !important;
+            transform: scale(0.96);
+            opacity: 0.85;
+        }
+
+        /* Kahoot-style button gradients */
+        .btn-option-a { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        .btn-option-b { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+        .btn-option-c { background: linear-gradient(135deg, #d97706, #b45309); }
+        .btn-option-d { background: linear-gradient(135deg, #16a34a, #15803d); }
+
+        /* Pulsing Timer Animation */
+        @keyframes pulse-ring {
+            0% { transform: scale(0.97); opacity: 0.8; }
+            50% { transform: scale(1.04); opacity: 1; }
+            100% { transform: scale(0.97); opacity: 0.8; }
+        }
+
+        .timer-warning {
+            animation: pulse-ring 1s infinite ease-in-out;
+            color: #ef4444 !important;
+        }
+
+        /* SVG Circular Timer Progress */
+        .timer-circle-bg {
+            stroke: rgba(255, 255, 255, 0.1);
+        }
+        .timer-circle-path {
+            stroke-dasharray: 283;
+            stroke-dashoffset: 0;
+            transition: stroke-dashoffset 1s linear, stroke 0.3s ease;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="p-3 md:p-6 text-slate-100 flex flex-col justify-between min-h-screen">
+
+    <div class="glass-panel rounded-2xl p-3 mb-4 flex flex-wrap justify-between items-center gap-3 shadow-xl border border-indigo-500/30">
+        <div class="flex items-center gap-2">
+            <span id="connectionBadgeDot" class="w-3 h-3 rounded-full bg-emerald-400"></span>
+            <span id="connectionStatusText" class="text-xs font-bold text-slate-300 uppercase tracking-wider">Koneksi Real-Time Aktif</span>
+        </div>
+        
+        <!-- Role Selection Switcher -->
+        <div class="flex items-center gap-2 bg-slate-900/80 p-1 rounded-xl border border-slate-700">
+            <button id="btnRoleHost" onclick="switchRole('HOST')" class="px-4 py-1.5 rounded-lg font-bold text-xs transition flex items-center gap-1.5 bg-indigo-600 text-white shadow-md">
+                <i class="fa-solid fa-tv"></i> HOST DISPLAY (Proyektor)
+            </button>
+            <button id="btnRolePlayer" onclick="switchRole('PLAYER')" class="px-4 py-1.5 rounded-lg font-bold text-xs transition flex items-center gap-1.5 text-slate-400 hover:text-white">
+                <i class="fa-solid fa-mobile-screen-button"></i> PLAYER DISPLAY (HP)
+            </button>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <button onclick="openShareModal()" class="px-3 py-1.5 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-200 text-xs font-semibold flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-qrcode"></i> Kode PIN / QR Code
+            </button>
+            <button id="soundToggle" onclick="toggleSound()" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition" title="Toggle Sound">
+                <i id="soundIcon" class="fa-solid fa-volume-high text-indigo-400"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- VIEW 1: HOST DISPLAY (PROYEKTOR / TV SCREEN) -->
+    <!-- ========================================== -->
+    <div id="hostView" class="flex-1 flex flex-col gap-5">
+        
+        <!-- Host Header Info -->
+        <header class="glass-panel rounded-2xl p-4 flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-gradient-to-tr from-indigo-500 to-purple-500 p-3 rounded-xl shadow-lg">
+                    <i class="fa-solid font-game text-2xl text-white">🎮</i>
+                </div>
+                <div>
+                    <h1 class="font-game text-2xl md:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-300 to-pink-400">
+                        QUIZ ARENA - HOST
+                    </h1>
+                    <p class="text-xs text-slate-400 flex items-center gap-2">
+                        <span>Kode Ruangan PIN:</span>
+                        <strong id="hostPinDisplay" class="text-amber-400 text-base tracking-widest font-mono bg-slate-900/80 px-2.5 py-0.5 rounded border border-amber-500/30">QUIZ88</strong>
+                        <button onclick="openShareModal()" class="text-xs text-indigo-300 hover:text-white underline"><i class="fa-solid fa-qrcode"></i> Tampilkan QR</button>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Host Tabs & Controls -->
+            <div class="flex items-center gap-3 flex-wrap">
+                <div class="flex bg-slate-900/80 p-1 rounded-xl border border-slate-700">
+                    <button id="btnHostTabGame" onclick="switchHostTab('game')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white">
+                        <i class="fa-solid fa-gamepad"></i> Arena Kuis
+                    </button>
+                    <button id="btnHostTabManage" onclick="switchHostTab('manage')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white">
+                        <i class="fa-solid fa-folder-plus"></i> Kelola & Upload Soal
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-2 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-700">
+                    <label for="timerSetting" class="text-xs text-slate-400 font-semibold"><i class="fa-solid fa-clock text-indigo-400"></i> Timer:</label>
+                    <input type="number" id="timerSetting" value="15" min="5" max="60" onchange="updateDefaultTime(this.value)" class="w-12 bg-slate-800 text-center font-bold text-xs text-indigo-300 rounded border border-slate-600 focus:outline-none">
+                    <span class="text-xs text-slate-400">dtk</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- HOST TAB 1: ARENA KUIS -->
+        <div id="hostTabGameSection" class="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
+            <!-- Left Screen: Question & Timer (8 Cols) -->
+            <section class="lg:col-span-8 flex flex-col gap-5">
+                <div class="glass-panel rounded-3xl p-6 md:p-8 flex flex-col justify-between relative overflow-hidden shadow-2xl flex-1">
+                    <div>
+                        <div class="flex justify-between items-center mb-4">
+                            <span id="hostQuestionCategory" class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase">
+                                Soal 1 / 5
+                            </span>
+                            <div class="flex gap-2">
+                                <button id="btnStartTimer" onclick="startTimer()" class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition">
+                                    <i class="fa-solid fa-play"></i> Mulai Timer
+                                </button>
+                                <button id="btnPauseTimer" onclick="pauseTimer()" class="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-md transition">
+                                    <i class="fa-solid fa-pause"></i> Jeda
+                                </button>
+                                <button onclick="resetTimer()" class="px-3 py-1.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold text-xs transition">
+                                    <i class="fa-solid fa-rotate-left"></i> Reset
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Question Display -->
+                        <h2 id="hostQuestionText" class="text-xl md:text-2xl font-bold text-white mb-6 leading-relaxed">
+                            Memuat Pertanyaan...
+                        </h2>
+
+                        <!-- Options Display -->
+                        <div id="hostOptionsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- SVG Circle & Progress Bar Timer -->
+                    <div class="mt-6 pt-4 border-t border-slate-800 flex items-center gap-4">
+                        <div class="relative w-16 h-16 flex-shrink-0 flex items-center justify-center">
+                            <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                                <circle class="timer-circle-bg" cx="50" cy="50" r="45" stroke-width="8" fill="none" />
+                                <circle id="timerCirclePath" class="timer-circle-path stroke-indigo-500" cx="50" cy="50" r="45" stroke-width="8" fill="none" />
+                            </svg>
+                            <span id="hostTimerText" class="absolute font-game text-xl font-bold text-indigo-400">15</span>
+                        </div>
+
+                        <div class="flex-1">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-xs font-semibold text-slate-400">SISA WAKTU</span>
+                                <span id="hostTimerBarText" class="text-xs font-bold text-indigo-300">100%</span>
+                            </div>
+                            <div class="w-full bg-slate-900/80 h-3 rounded-full overflow-hidden p-0.5 border border-slate-700">
+                                <div id="hostTimerBar" class="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-1000 ease-linear w-full"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Control Action Buttons -->
+                <div class="glass-panel rounded-2xl p-4 flex flex-wrap justify-between items-center gap-3">
+                    <div class="flex gap-2">
+                        <button onclick="simulateAllAnswers()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-bold text-indigo-300 transition" title="Isi jawaban acak untuk peserta bot/testing">
+                            <i class="fa-solid fa-robot"></i> Simulasi Jawaban Bot
+                        </button>
+                    </div>
+
+                    <div class="flex gap-3">
+                        <button id="btnReveal" onclick="revealAnswers()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-xs shadow-lg transition">
+                            <i class="fa-solid fa-check-circle"></i> PERIKSA JAWABAN
+                        </button>
+                        <button onclick="nextQuestion()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs shadow-lg transition">
+                            Soal Berikutnya <i class="fa-solid fa-arrow-right ml-1"></i>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Screen: Players Grid & Leaderboard (4 Cols) -->
+            <section class="lg:col-span-4 flex flex-col gap-5">
+                <!-- Participants Card Grid -->
+                <div class="glass-panel rounded-3xl p-5 flex flex-col flex-1">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="font-game text-base font-bold text-indigo-300">
+                            <i class="fa-solid fa-users text-indigo-400"></i> Peserta Terhubung (<span id="connectedPeerCount">0</span>)
+                        </h3>
+                        <span id="answeredCount" class="text-xs bg-slate-800 border border-slate-700 text-slate-300 px-2 py-0.5 rounded-full font-semibold">
+                            0 / 0 Menjawab
+                        </span>
+                    </div>
+
+                    <div id="hostParticipantsGrid" class="grid grid-cols-2 gap-2.5 max-h-[300px] overflow-y-auto pr-1">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Leaderboard Widget -->
+                <div class="glass-panel rounded-3xl p-5">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="font-game text-base font-bold text-amber-300">
+                            <i class="fa-solid fa-trophy text-amber-400"></i> Leaderboard
+                        </h3>
+                        <button onclick="showPodiumModal()" class="text-xs px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 font-bold transition">
+                            <i class="fa-solid fa-crown"></i> Podium Akhir
+                        </button>
+                    </div>
+                    <div id="hostLeaderboardList" class="space-y-1.5 max-h-[170px] overflow-y-auto pr-1">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- HOST TAB 2: KELOLA & UPLOAD SOAL -->
+        <div id="hostTabManageSection" class="glass-panel rounded-3xl p-6 hidden flex-col gap-6">
+            <div class="flex flex-wrap justify-between items-center border-b border-slate-700/60 pb-4">
+                <div>
+                    <h2 class="font-game text-xl font-bold text-white"><i class="fa-solid fa-sliders text-indigo-400"></i> Manajemen Bank Soal Kuis</h2>
+                    <p class="text-xs text-slate-400">Tambah soal manual atau upload file JSON secara instan</p>
+                </div>
+                <button onclick="downloadQuestionTemplate()" class="px-3.5 py-2 rounded-xl bg-indigo-600/30 border border-indigo-500/40 text-indigo-200 text-xs font-bold hover:bg-indigo-600/50 transition">
+                    <i class="fa-solid fa-download"></i> Unduh Template JSON
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Left: Form Input Soal Baru -->
+                <div class="lg:col-span-5 bg-slate-900/80 p-5 rounded-2xl border border-slate-800 space-y-3">
+                    <h3 class="font-bold text-sm text-indigo-300 mb-2"><i class="fa-solid fa-plus-circle"></i> Tambah Soal Baru</h3>
+                    
+                    <div>
+                        <label class="text-xs text-slate-400 block mb-1">Pertanyaan Kuis:</label>
+                        <textarea id="inputQuestionText" rows="2" placeholder="Tuliskan teks soal di sini..." class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"></textarea>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-xs text-slate-400 block mb-1">Opsi A:</label>
+                            <input type="text" id="inputOptA" placeholder="Pilihan A" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2 text-xs text-white">
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-400 block mb-1">Opsi B:</label>
+                            <input type="text" id="inputOptB" placeholder="Pilihan B" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2 text-xs text-white">
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-400 block mb-1">Opsi C:</label>
+                            <input type="text" id="inputOptC" placeholder="Pilihan C" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2 text-xs text-white">
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-400 block mb-1">Opsi D:</label>
+                            <input type="text" id="inputOptD" placeholder="Pilihan D" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2 text-xs text-white">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-xs text-slate-400 block mb-1">Kunci Jawaban Benar:</label>
+                        <select id="inputCorrectAnswer" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2 text-xs text-emerald-400 font-bold focus:outline-none">
+                            <option value="A">Opsi A</option>
+                            <option value="B">Opsi B</option>
+                            <option value="C">Opsi C</option>
+                            <option value="D">Opsi D</option>
+                        </select>
+                    </div>
+
+                    <button onclick="addSingleQuestion()" class="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-bold text-xs text-white shadow-md transition">
+                        <i class="fa-solid fa-save"></i> Tambahkan Soal
+                    </button>
+
+                    <!-- File Upload Box -->
+                    <div class="pt-3 border-t border-slate-800">
+                        <label class="text-xs font-bold text-amber-300 block mb-1.5"><i class="fa-solid fa-file-import"></i> Import Soal dari File (JSON):</label>
+                        <input type="file" id="fileInputQuestions" accept=".json" onchange="handleFileUpload(event)" class="text-xs text-slate-400 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-slate-200 hover:file:bg-slate-700 cursor-pointer">
+                    </div>
+                </div>
+
+                <!-- Right: Questions List Table -->
+                <div class="lg:col-span-7 flex flex-col">
+                    <h3 class="font-bold text-sm text-indigo-300 mb-2"><i class="fa-solid fa-list"></i> Daftar Soal Aktif (<span id="manageQuestionCount">0</span>)</h3>
+                    <div id="manageQuestionsList" class="space-y-2 max-h-[380px] overflow-y-auto pr-1 flex-1">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+
+    <!-- ========================================== -->
+    <!-- VIEW 2: PLAYER DISPLAY (TAMPILAN HP PESERTA) -->
+    <!-- ========================================== -->
+    <div id="playerView" class="flex-1 flex flex-col justify-center items-center max-w-md mx-auto w-full hidden">
+        
+        <!-- PLAYER STEP 1: LOGIN & ROOM CODE ENTRY -->
+        <div id="playerJoinScreen" class="glass-panel rounded-3xl p-6 w-full text-center shadow-2xl border border-indigo-500/30">
+            <div class="w-16 h-16 bg-gradient-to-tr from-indigo-500 to-purple-500 rounded-2xl mx-auto flex items-center justify-center text-3xl mb-3 shadow-lg">
+                📱
+            </div>
+            <h2 class="font-game text-2xl font-bold text-white mb-1">Masuk Kuis</h2>
+            <p class="text-xs text-slate-400 mb-5">Masukkan Kode Ruangan & Nama Kamu</p>
+
+            <div class="space-y-4 text-left">
+                <div>
+                    <label class="text-xs font-semibold text-slate-300 block mb-1"><i class="fa-solid fa-key text-amber-400"></i> Kode Ruangan PIN:</label>
+                    <input type="text" id="playerInputRoomCode" value="QUIZ88" placeholder="Contoh: QUIZ88" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-center text-lg font-mono font-bold tracking-widest text-amber-300 focus:outline-none focus:border-amber-400 uppercase">
+                </div>
+
+                <div>
+                    <label class="text-xs font-semibold text-slate-300 block mb-1"><i class="fa-solid fa-user text-indigo-400"></i> Nama Peserta:</label>
+                    <input type="text" id="playerInputName" placeholder="Contoh: Budi Super" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500">
+                </div>
+
+                <div>
+                    <label class="text-xs font-semibold text-slate-300 block mb-1"><i class="fa-solid fa-face-smile text-purple-400"></i> Pilih Avatar:</label>
+                    <div id="avatarPicker" class="flex gap-2 overflow-x-auto pb-2 pt-1">
+                        <!-- Avatars dynamically generated -->
+                    </div>
+                </div>
+
+                <button onclick="playerJoinGame()" class="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 font-bold text-sm text-white shadow-lg shadow-indigo-600/30 hover:opacity-90 transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-plug"></i> HUBUNGKAN KE HOST
+                </button>
+            </div>
+        </div>
+
+        <!-- PLAYER STEP 2: WAITING LOBBY -->
+        <div id="playerWaitingScreen" class="glass-panel rounded-3xl p-8 w-full text-center shadow-2xl hidden">
+            <div id="playerWaitingAvatar" class="text-6xl mb-3 animate-bounce">🦊</div>
+            <h3 id="playerWaitingName" class="font-game text-2xl font-bold text-white mb-1">Halo, Budi!</h3>
+            <p id="playerWaitingStatusText" class="text-sm text-indigo-300 font-semibold mb-6">Terhubung ke Host! Menunggu kuis dimulai...</p>
+            
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex items-center justify-center gap-3">
+                <i class="fa-solid fa-spinner fa-spin text-indigo-400 text-xl"></i>
+                <span class="text-xs text-slate-300">Layar HP akan otomatis memperbarui soal...</span>
+            </div>
+        </div>
+
+        <!-- PLAYER STEP 3: GAMEPLAY ANSWER SCREEN -->
+        <div id="playerGameScreen" class="w-full flex flex-col gap-3 hidden">
+            <!-- Top Player Stats Header -->
+            <div class="glass-panel rounded-2xl p-3 flex justify-between items-center text-xs">
+                <div class="flex items-center gap-2">
+                    <span id="playerCurrentAvatar" class="text-xl">🦊</span>
+                    <span id="playerCurrentName" class="font-bold text-white">Budi</span>
+                </div>
+                <div class="bg-indigo-950/80 border border-indigo-800 px-3 py-1 rounded-xl text-indigo-300 font-bold">
+                    <span id="playerCurrentScore">0</span> Pts
+                </div>
+            </div>
+
+            <!-- Question & Timer Card for Player -->
+            <div class="glass-panel rounded-2xl p-4">
+                <div class="flex justify-between items-center text-xs text-slate-400 font-semibold mb-2">
+                    <span id="playerQuestionNum" class="text-indigo-300 font-bold">Soal 1</span>
+                    <span id="playerTimerDisplay" class="font-game text-xl font-bold text-amber-400">15s</span>
+                </div>
+                <h3 id="playerQuestionText" class="text-sm md:text-base font-bold text-white leading-snug">
+                    Memuat pertanyaan dari host...
+                </h3>
+            </div>
+
+            <!-- Option Buttons with Text Options -->
+            <div id="playerButtonsContainer" class="grid grid-cols-1 gap-2.5">
+                <button onclick="playerSubmitAnswer('A')" class="option-btn btn-option-a p-3.5 rounded-2xl font-semibold text-sm text-white shadow-lg flex items-center justify-between active:scale-95 transition">
+                    <span id="playerOptA_text">▲ Option A</span>
+                    <span class="text-xs bg-black/20 px-2.5 py-1 rounded-lg font-bold">A</span>
+                </button>
+                <button onclick="playerSubmitAnswer('B')" class="option-btn btn-option-b p-3.5 rounded-2xl font-semibold text-sm text-white shadow-lg flex items-center justify-between active:scale-95 transition">
+                    <span id="playerOptB_text">◆ Option B</span>
+                    <span class="text-xs bg-black/20 px-2.5 py-1 rounded-lg font-bold">B</span>
+                </button>
+                <button onclick="playerSubmitAnswer('C')" class="option-btn btn-option-c p-3.5 rounded-2xl font-semibold text-sm text-white shadow-lg flex items-center justify-between active:scale-95 transition">
+                    <span id="playerOptC_text">● Option C</span>
+                    <span class="text-xs bg-black/20 px-2.5 py-1 rounded-lg font-bold">C</span>
+                </button>
+                <button onclick="playerSubmitAnswer('D')" class="option-btn btn-option-d p-3.5 rounded-2xl font-semibold text-sm text-white shadow-lg flex items-center justify-between active:scale-95 transition">
+                    <span id="playerOptD_text">■ Option D</span>
+                    <span class="text-xs bg-black/20 px-2.5 py-1 rounded-lg font-bold">D</span>
+                </button>
+            </div>
+
+            <!-- Lock Screen State -->
+            <div id="playerLockedScreen" class="glass-panel rounded-3xl p-6 text-center hidden">
+                <div class="w-12 h-12 bg-indigo-600/30 rounded-2xl mx-auto flex items-center justify-center text-2xl text-indigo-400 mb-2 border border-indigo-500/40">
+                    <i class="fa-solid fa-lock"></i>
+                </div>
+                <h3 class="font-game text-lg font-bold text-white mb-1">Jawaban Terkunci!</h3>
+                <p class="text-xs text-slate-400">Menunggu waktu habis atau Host memeriksa jawaban...</p>
+            </div>
+        </div>
+
+        <!-- PLAYER STEP 4: RESULT FEEDBACK SCREEN -->
+        <div id="playerResultScreen" class="glass-panel rounded-3xl p-8 w-full text-center shadow-2xl hidden">
+            <div id="resultBoxCorrect" class="hidden">
+                <div class="text-6xl mb-2 animate-bounce">🎉</div>
+                <h3 class="font-game text-3xl font-bold text-emerald-400 mb-1">BENAR!</h3>
+                <p class="text-xs text-slate-300 font-semibold mb-4">+100 Poin Tambahan</p>
+            </div>
+            
+            <div id="resultBoxWrong" class="hidden">
+                <div class="text-6xl mb-2">❌</div>
+                <h3 class="font-game text-3xl font-bold text-red-400 mb-1">SALAH!</h3>
+                <p class="text-xs text-slate-400 font-semibold mb-4">Jawaban benar: <strong id="playerCorrectAnswerText" class="text-amber-300">Option B</strong></p>
+            </div>
+
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 text-center">
+                <span class="text-xs text-slate-400 block mb-1">Total Skor Kamu Saat Ini</span>
+                <span id="playerTotalScoreResult" class="font-game text-3xl font-bold text-indigo-400">0 Pts</span>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="mt-4 text-center text-xs text-slate-500">
+        Multi-Screen Quiz Engine &copy; 2026 - Real-time Synchronized Architecture
+    </footer>
+
+
+    <!-- MODAL 1: SHARE PIN & QR CODE -->
+    <div id="shareModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md hidden items-center justify-center p-4 z-50">
+        <div class="glass-panel bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-md p-6 shadow-2xl space-y-4 text-center">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <h3 class="font-game text-lg font-bold text-white"><i class="fa-solid fa-qrcode text-amber-400"></i> Gabung Kuis Multi-Screen</h3>
+                <button onclick="closeShareModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <p class="text-xs text-slate-300">Buka kuis ini di tab/jendela lain lalu masukkan PIN berikut:</p>
+
+            <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-2">
+                <span class="text-xs text-slate-400 uppercase tracking-wider font-semibold block">KODE RUANGAN PIN:</span>
+                <span id="modalPinDisplay" class="font-mono text-3xl font-black text-amber-400 tracking-widest">QUIZ88</span>
+            </div>
+
+            <!-- Container Render QR Code -->
+            <div class="flex justify-center p-3 bg-white rounded-2xl shadow-inner max-w-[200px] mx-auto">
+                <div id="qrcodeContainer"></div>
+            </div>
+
+            <div class="text-[11px] text-slate-400 bg-indigo-950/40 p-2.5 rounded-xl border border-indigo-800/40">
+                <i class="fa-solid fa-circle-check text-emerald-400"></i> Mendukung pengujian multi-tab & multi-jendela secara real-time.
+            </div>
+
+            <button onclick="closeShareModal()" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs transition">
+                Tutup
+            </button>
+        </div>
+    </div>
+
+
+    <!-- MODAL 2: PODIUM SELESAI / WINNER ANNOUNCEMENT -->
+    <div id="podiumModal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md hidden items-center justify-center p-4 z-50">
+        <div class="glass-panel bg-slate-900 border border-amber-500/40 rounded-3xl w-full max-w-lg p-6 shadow-2xl space-y-5 text-center relative overflow-hidden">
+            <div class="border-b border-slate-800 pb-2">
+                <h2 class="font-game text-2xl font-bold text-amber-300"><i class="fa-solid fa-trophy text-amber-400"></i> PODIUM PEMENANG KUIS</h2>
+                <p class="text-xs text-slate-400">Selamat kepada para juara!</p>
+            </div>
+
+            <!-- Podium Visuals -->
+            <div id="podiumCardsContainer" class="grid grid-cols-3 gap-3 items-end pt-4 min-h-[180px]">
+                <!-- Populated dynamically -->
+            </div>
+
+            <div class="pt-2 flex justify-center gap-3">
+                <button onclick="closePodiumModal()" class="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition">
+                    Tutup
+                </button>
+                <button onclick="triggerFireworks()" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold rounded-xl text-xs transition shadow-lg">
+                    <i class="fa-solid fa-sparkles"></i> Pesta Kembang Api
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // ==========================================
+        // AUDIO SYNTHESIZER (Web Audio API)
+        // ==========================================
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+
+            playTone(freq, type, duration, startVol = 0.1) {
+                if (!this.enabled) return;
+                this.init();
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(startVol, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch (e) {}
+            }
+
+            correct() {
+                if (!this.enabled) return;
+                this.playTone(523.25, 'triangle', 0.15, 0.2);
+                setTimeout(() => this.playTone(659.25, 'triangle', 0.15, 0.2), 100);
+                setTimeout(() => this.playTone(783.99, 'triangle', 0.3, 0.25), 200);
+            }
+
+            wrong() {
+                if (!this.enabled) return;
+                this.playTone(220, 'sawtooth', 0.2, 0.2);
+                setTimeout(() => this.playTone(196, 'sawtooth', 0.3, 0.2), 150);
+            }
+
+            click() { this.playTone(400, 'sine', 0.05, 0.08); }
+            tick() { this.playTone(800, 'sine', 0.03, 0.05); }
+            fanfare() {
+                if (!this.enabled) return;
+                [261, 329, 392, 523, 659, 783].forEach((f, i) => {
+                    setTimeout(() => this.playTone(f, 'triangle', 0.3, 0.2), i * 90);
+                });
+            }
+        }
+
+        const audio = new SoundFX();
+
+        function triggerVibration(pattern = [100]) {
+            if ("vibrate" in navigator) {
+                try { navigator.vibrate(pattern); } catch (e) {}
+            }
+        }
+
+        // ==========================================
+        // DATASETS & STATE MANAGEMENT
+        // ==========================================
+        let questions = [
+            {
+                id: 1,
+                question: "Bahasa pemrograman apa yang paling populer digunakan untuk membuat logika web interaktif?",
+                options: { A: "Python", B: "JavaScript", C: "C++", D: "HTML" },
+                correct: "B"
+            },
+            {
+                id: 2,
+                question: "Di dalam istilah pengembangan game, singkatan dari 'FPS' adalah...",
+                options: { A: "Frames Per Second", B: "Fast Processing Speed", C: "First Player System", D: "File Processing Service" },
+                correct: "A"
+            },
+            {
+                id: 3,
+                question: "Game engine manakah yang terkenal menggunakan bahasa pemrograman C#?",
+                options: { A: "Unreal Engine", B: "Godot Engine", C: "Unity", D: "CryEngine" },
+                correct: "C"
+            },
+            {
+                id: 4,
+                question: "Kombinasi nilai RGB maksimal (255, 255, 255) menghasilkan warna...",
+                options: { A: "Hitam", B: "Kuning", C: "Abu-Abu", D: "Putih" },
+                correct: "D"
+            },
+            {
+                id: 5,
+                question: "Tag HTML apa yang digunakan untuk merender grafik 2D via JavaScript?",
+                options: { A: "<canvas>", B: "<graphics>", C: "<draw>", D: "<paint>" },
+                correct: "A"
+            }
+        ];
+
+        let players = [];
+        const avatarList = ["🦊", "🐼", "🦁", "🦄", "🐸", "🐯", "🐨", "🐙", "🤖", "🚀"];
+
+        let currentRole = "HOST"; // 'HOST' or 'PLAYER'
+        let currentQuestionIdx = 0;
+        let defaultTime = 15;
+        let timerRemaining = 15;
+        let timerInterval = null;
+        let isTimerRunning = false;
+        let isAnswersRevealed = false;
+
+        let roomCode = "QUIZ88";
+        let myPlayerProfile = null;
+
+        // ==========================================
+        // REAL-TIME BROADCAST ENGINE (CANVAS COMPATIBLE)
+        // ==========================================
+        const quizChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('quiz_arena_channel') : null;
+
+        function sendBroadcastMsg(data) {
+            data.roomCode = roomCode;
+            if (quizChannel) {
+                quizChannel.postMessage(data);
+            }
+            // Fallback for isolated window frames
+            try {
+                localStorage.setItem('quiz_arena_msg', JSON.stringify({ ...data, _ts: Date.now() }));
+            } catch (e) {}
+        }
+
+        function initRealtimeEngine() {
+            if (quizChannel) {
+                quizChannel.onmessage = (event) => {
+                    handleIncomingMessage(event.data);
+                };
+            }
+
+            window.addEventListener('storage', (e) => {
+                if (e.key === 'quiz_arena_msg' && e.newValue) {
+                    try {
+                        const data = JSON.parse(e.newValue);
+                        handleIncomingMessage(data);
+                    } catch (err) {}
+                }
+            });
+        }
+
+        function handleIncomingMessage(data) {
+            if (!data || data.roomCode !== roomCode) return;
+
+            // Host receiver logic
+            if (currentRole === 'HOST') {
+                if (data.type === 'PLAYER_JOINED') {
+                    const existing = players.find(p => p.id === data.player.id);
+                    if (!existing) {
+                        players.push(data.player);
+                    } else {
+                        Object.assign(existing, data.player);
+                    }
+                    renderHostParticipants();
+                    renderHostLeaderboard();
+                    broadcastHostState();
+                }
+
+                if (data.type === 'PLAYER_SUBMIT_ANSWER' && !isAnswersRevealed) {
+                    const player = players.find(p => p.id === data.playerId);
+                    if (player) {
+                        player.currentAnswer = data.answer;
+                        renderHostParticipants();
+                        broadcastHostState();
+                    }
+                }
+
+                if (data.type === 'REQUEST_SYNC') {
+                    broadcastHostState();
+                }
+            }
+
+            // Player receiver logic
+            if (currentRole === 'PLAYER') {
+                if (data.type === 'HOST_STATE_UPDATE') {
+                    handleHostStateUpdate(data);
+                }
+            }
+        }
+
+        function broadcastHostState() {
+            if (currentRole !== 'HOST') return;
+
+            const payload = {
+                type: 'HOST_STATE_UPDATE',
+                currentQuestionIdx,
+                timerRemaining,
+                defaultTime,
+                isAnswersRevealed,
+                question: questions[currentQuestionIdx] || null,
+                players,
+                totalQuestions: questions.length
+            };
+
+            sendBroadcastMsg(payload);
+            document.getElementById('connectedPeerCount').innerText = players.length;
+        }
+
+        function handleHostStateUpdate(data) {
+            currentQuestionIdx = data.currentQuestionIdx;
+            timerRemaining = data.timerRemaining;
+            isAnswersRevealed = data.isAnswersRevealed;
+
+            const q = data.question;
+            if (!q) return;
+
+            document.getElementById('playerQuestionNum').innerText = `Soal ${currentQuestionIdx + 1} / ${data.totalQuestions}`;
+            document.getElementById('playerTimerDisplay').innerText = `${timerRemaining}s`;
+            document.getElementById('playerQuestionText').innerText = q.question;
+            
+            document.getElementById('playerOptA_text').innerText = `▲ ${q.options.A}`;
+            document.getElementById('playerOptB_text').innerText = `◆ ${q.options.B}`;
+            document.getElementById('playerOptC_text').innerText = `● ${q.options.C}`;
+            document.getElementById('playerOptD_text').innerText = `■ ${q.options.D}`;
+
+            if (myPlayerProfile) {
+                const updatedMe = data.players.find(p => p.id === myPlayerProfile.id);
+                if (updatedMe) {
+                    myPlayerProfile = updatedMe;
+                    document.getElementById('playerCurrentScore').innerText = updatedMe.score;
+                }
+
+                if (isAnswersRevealed) {
+                    showPlayerScreen('playerResultScreen');
+                    document.getElementById('playerTotalScoreResult').innerText = `${myPlayerProfile.score} Pts`;
+                    
+                    if (myPlayerProfile.isCorrect) {
+                        document.getElementById('resultBoxCorrect').classList.remove('hidden');
+                        document.getElementById('resultBoxWrong').classList.add('hidden');
+                        triggerVibration([100, 50, 100]);
+                    } else {
+                        document.getElementById('resultBoxWrong').classList.remove('hidden');
+                        document.getElementById('resultBoxCorrect').classList.add('hidden');
+                        document.getElementById('playerCorrectAnswerText').innerText = `Option ${q.correct}: ${q.options[q.correct]}`;
+                        triggerVibration([300]);
+                    }
+                } else if (myPlayerProfile.currentAnswer !== null && myPlayerProfile.currentAnswer !== undefined) {
+                    showPlayerScreen('playerLockedScreen');
+                } else {
+                    showPlayerScreen('playerGameScreen');
+                }
+            }
+        }
+
+        function generateQRCode(roomCode) {
+            const container = document.getElementById('qrcodeContainer');
+            container.innerHTML = '';
+            new QRCode(container, {
+                text: window.location.href,
+                width: 180,
+                height: 180,
+                colorDark: "#0f172a",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+        }
+
+        // ==========================================
+        // INITIALIZATION & ROLE SWITCHING
+        // ==========================================
+        window.onload = function() {
+            initRealtimeEngine();
+            initAvatarPicker();
+            renderHostQuestion();
+            renderHostParticipants();
+            renderHostLeaderboard();
+            renderManageQuestionsList();
+            generateQRCode(roomCode);
+
+            // Heartbeat from host to keep all players connected
+            setInterval(() => {
+                if (currentRole === 'HOST') {
+                    broadcastHostState();
+                }
+            }, 1000);
+        };
+
+        function switchRole(role) {
+            audio.click();
+            currentRole = role;
+            
+            const btnHost = document.getElementById('btnRoleHost');
+            const btnPlayer = document.getElementById('btnRolePlayer');
+            const hostView = document.getElementById('hostView');
+            const playerView = document.getElementById('playerView');
+
+            if (role === 'HOST') {
+                btnHost.className = "px-4 py-1.5 rounded-lg font-bold text-xs transition flex items-center gap-1.5 bg-indigo-600 text-white shadow-md";
+                btnPlayer.className = "px-4 py-1.5 rounded-lg font-bold text-xs transition flex items-center gap-1.5 text-slate-400 hover:text-white";
+                hostView.classList.remove('hidden');
+                playerView.classList.add('hidden');
+                broadcastHostState();
+            } else {
+                btnPlayer.className = "px-4 py-1.5 rounded-lg font-bold text-xs transition flex items-center gap-1.5 bg-indigo-600 text-white shadow-md";
+                btnHost.className = "px-4 py-1.5 rounded-lg font-bold text-xs transition flex items-center gap-1.5 text-slate-400 hover:text-white";
+                hostView.classList.add('hidden');
+                playerView.classList.remove('hidden');
+
+                if (!myPlayerProfile) {
+                    showPlayerScreen('playerJoinScreen');
+                } else {
+                    sendBroadcastMsg({ type: 'REQUEST_SYNC' });
+                }
+            }
+        }
+
+        function switchHostTab(tab) {
+            audio.click();
+            const tabGame = document.getElementById('hostTabGameSection');
+            const tabManage = document.getElementById('hostTabManageSection');
+            const btnGame = document.getElementById('btnHostTabGame');
+            const btnManage = document.getElementById('btnHostTabManage');
+
+            if (tab === 'game') {
+                tabGame.classList.remove('hidden');
+                tabManage.classList.add('hidden');
+                btnGame.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white";
+                btnManage.className = "px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white";
+            } else {
+                tabGame.classList.add('hidden');
+                tabManage.classList.remove('hidden');
+                btnManage.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white";
+                btnGame.className = "px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white";
+                renderManageQuestionsList();
+            }
+        }
+
+        function toggleSound() {
+            audio.enabled = !audio.enabled;
+            const soundIcon = document.getElementById('soundIcon');
+            soundIcon.className = audio.enabled ? "fa-solid fa-volume-high text-indigo-400" : "fa-solid fa-volume-xmark text-slate-500";
+        }
+
+        // ==========================================
+        // HOST SCREEN RENDERERS & LOGIC
+        // ==========================================
+        function renderHostQuestion() {
+            if (!questions || questions.length === 0) return;
+            const q = questions[currentQuestionIdx];
+            document.getElementById('hostQuestionCategory').innerText = `Soal ${currentQuestionIdx + 1} / ${questions.length}`;
+            document.getElementById('hostQuestionText').innerHTML = q.question;
+
+            const grid = document.getElementById('hostOptionsGrid');
+            grid.innerHTML = '';
+
+            const optionClasses = {
+                A: "btn-option-a text-white",
+                B: "btn-option-b text-white",
+                C: "btn-option-c text-white",
+                D: "btn-option-d text-white"
+            };
+
+            for (const key in q.options) {
+                const btn = document.createElement('div');
+                btn.id = `host-opt-${key}`;
+                btn.className = `p-4 rounded-2xl flex items-center justify-between font-semibold shadow-lg transition-all ${optionClasses[key]}`;
+                btn.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <span class="w-8 h-8 rounded-xl bg-black/20 font-bold flex items-center justify-center text-sm">${key}</span>
+                        <span>${q.options[key]}</span>
+                    </div>
+                    <span id="host-badge-correct-${key}" class="hidden text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-400 text-slate-900 shadow">
+                        <i class="fa-solid fa-check"></i> BENAR
+                    </span>
+                `;
+                grid.appendChild(btn);
+            }
+
+            isAnswersRevealed = false;
+            resetTimer();
+            broadcastHostState();
+        }
+
+        function renderHostParticipants() {
+            const grid = document.getElementById('hostParticipantsGrid');
+            grid.innerHTML = '';
+
+            let answeredCount = 0;
+
+            if (players.length === 0) {
+                grid.innerHTML = `<div class="col-span-2 text-center py-6 text-xs text-slate-400 italic">Belum ada peserta terhubung</div>`;
+                document.getElementById('answeredCount').innerText = `0 / 0 Menjawab`;
+                return;
+            }
+
+            players.forEach(p => {
+                if (p.currentAnswer !== null && p.currentAnswer !== undefined) answeredCount++;
+
+                let statusClass = "glass-card border-slate-700/60";
+                let statusBadge = `<span class="text-[10px] text-slate-400">Menunggu...</span>`;
+
+                if (p.currentAnswer !== null && p.currentAnswer !== undefined) {
+                    statusClass = "player-card answered glass-card";
+                    statusBadge = `<span class="text-[10px] font-bold text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full"><i class="fa-solid fa-lock"></i> Terkunci</span>`;
+                }
+
+                if (isAnswersRevealed) {
+                    if (p.isCorrect) {
+                        statusClass = "player-card correct";
+                        statusBadge = `<span class="text-[10px] font-extrabold text-emerald-300">+100 Pts</span>`;
+                    } else {
+                        statusClass = "player-card wrong";
+                        statusBadge = `<span class="text-[10px] font-extrabold text-red-300">Salah</span>`;
+                    }
+                }
+
+                const card = document.createElement('div');
+                card.className = `player-card p-2.5 rounded-2xl flex flex-col justify-between ${statusClass}`;
+                card.innerHTML = `
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="text-lg">${p.avatar}</span>
+                        <div class="truncate flex-1">
+                            <h4 class="font-bold text-xs text-white truncate">${p.name}</h4>
+                            <p class="text-[10px] text-slate-400 font-semibold">${p.score} Pts</p>
+                        </div>
+                    </div>
+                    <div class="pt-1 border-t border-slate-700/40 flex justify-between items-center">
+                        ${statusBadge}
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+
+            document.getElementById('answeredCount').innerText = `${answeredCount} / ${players.length} Menjawab`;
+        }
+
+        function renderHostLeaderboard() {
+            const list = document.getElementById('hostLeaderboardList');
+            list.innerHTML = '';
+
+            const sorted = [...players].sort((a, b) => b.score - a.score);
+
+            if (sorted.length === 0) {
+                list.innerHTML = `<p class="text-xs text-slate-500 text-center py-2">Leaderboard Kosong</p>`;
+                return;
+            }
+
+            sorted.forEach((p, idx) => {
+                const item = document.createElement('div');
+                item.className = "flex items-center justify-between p-2 rounded-xl bg-slate-800/60 border border-slate-700/50 text-xs";
+                
+                let rankBadge = `<span class="w-4 font-bold text-slate-400">${idx + 1}.</span>`;
+                if (idx === 0) rankBadge = `<span class="w-4 text-amber-400 font-bold"><i class="fa-solid fa-crown"></i></span>`;
+
+                item.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        ${rankBadge}
+                        <span class="text-sm">${p.avatar}</span>
+                        <span class="font-bold text-slate-200">${p.name}</span>
+                    </div>
+                    <span class="font-bold text-indigo-300 bg-indigo-950/60 border border-indigo-800/50 px-2 py-0.5 rounded-lg text-[11px]">${p.score} Pts</span>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function simulateAllAnswers() {
+            if (isAnswersRevealed) return;
+            const options = ["A", "B", "C", "D"];
+            players.forEach(p => {
+                p.currentAnswer = options[Math.floor(Math.random() * options.length)];
+            });
+            audio.click();
+            renderHostParticipants();
+            broadcastHostState();
+        }
+
+        function revealAnswers() {
+            if (isAnswersRevealed) return;
+
+            pauseTimer();
+            isAnswersRevealed = true;
+
+            const q = questions[currentQuestionIdx];
+            const correctOpt = q.correct;
+
+            document.getElementById(`host-badge-correct-${correctOpt}`)?.classList.remove('hidden');
+
+            let anyCorrect = false;
+            players.forEach(p => {
+                if (p.currentAnswer === correctOpt) {
+                    p.isCorrect = true;
+                    p.score += 100;
+                    anyCorrect = true;
+                } else {
+                    p.isCorrect = false;
+                }
+            });
+
+            if (anyCorrect) audio.correct();
+            else audio.wrong();
+
+            renderHostParticipants();
+            renderHostLeaderboard();
+            broadcastHostState();
+        }
+
+        function nextQuestion() {
+            currentQuestionIdx = (currentQuestionIdx + 1) % questions.length;
+            players.forEach(p => {
+                p.currentAnswer = null;
+                p.isCorrect = null;
+            });
+            audio.click();
+            renderHostQuestion();
+            renderHostParticipants();
+        }
+
+        // ==========================================
+        // TIMER LOGIC WITH SVG CIRCLE
+        // ==========================================
+        function updateDefaultTime(val) {
+            defaultTime = parseInt(val) || 15;
+            resetTimer();
+        }
+
+        function startTimer() {
+            if (isTimerRunning) return;
+            isTimerRunning = true;
+            audio.click();
+
+            timerInterval = setInterval(() => {
+                if (timerRemaining > 0) {
+                    timerRemaining--;
+                    updateTimerDisplay();
+                    broadcastHostState();
+                    if (timerRemaining <= 5 && timerRemaining > 0) audio.tick();
+                } else {
+                    pauseTimer();
+                    revealAnswers();
+                }
+            }, 1000);
+        }
+
+        function pauseTimer() {
+            isTimerRunning = false;
+            clearInterval(timerInterval);
+        }
+
+        function resetTimer() {
+            pauseTimer();
+            timerRemaining = defaultTime;
+            updateTimerDisplay();
+        }
+
+        function updateTimerDisplay() {
+            const timerText = document.getElementById('hostTimerText');
+            const timerBar = document.getElementById('hostTimerBar');
+            const timerBarText = document.getElementById('hostTimerBarText');
+            const circlePath = document.getElementById('timerCirclePath');
+
+            timerText.innerText = `${timerRemaining}`;
+
+            const pct = (timerRemaining / defaultTime);
+            const pct100 = Math.round(pct * 100);
+
+            timerBar.style.width = `${pct100}%`;
+            timerBarText.innerText = `${pct100}%`;
+
+            const strokeDashoffset = 283 * (1 - pct);
+            circlePath.style.strokeDashoffset = strokeDashoffset;
+
+            if (timerRemaining <= 5) {
+                timerText.classList.add('timer-warning');
+                circlePath.style.stroke = "#ef4444";
+            } else {
+                timerText.classList.remove('timer-warning');
+                circlePath.style.stroke = "#6366f1";
+            }
+        }
+
+        // ==========================================
+        // MANAGE QUESTIONS TAB LOGIC
+        // ==========================================
+        function renderManageQuestionsList() {
+            const list = document.getElementById('manageQuestionsList');
+            document.getElementById('manageQuestionCount').innerText = questions.length;
+            list.innerHTML = '';
+
+            questions.forEach((q, idx) => {
+                const item = document.createElement('div');
+                item.className = "p-3 rounded-2xl bg-slate-800/80 border border-slate-700/70 text-xs flex justify-between items-center gap-3";
+                item.innerHTML = `
+                    <div class="space-y-1 flex-1">
+                        <div class="flex items-center gap-2 font-bold text-indigo-300">
+                            <span>Soal #${idx + 1}</span>
+                            <span class="text-[10px] bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 px-2 py-0.5 rounded-full">Kunci: ${q.correct}</span>
+                        </div>
+                        <p class="text-slate-200 font-semibold">${q.question}</p>
+                        <div class="text-[11px] text-slate-400 grid grid-cols-2 gap-x-2 gap-y-0.5 pt-1">
+                            <span>A: ${q.options.A}</span>
+                            <span>B: ${q.options.B}</span>
+                            <span>C: ${q.options.C}</span>
+                            <span>D: ${q.options.D}</span>
+                        </div>
+                    </div>
+                    <button onclick="deleteQuestion(${idx})" class="p-2 bg-red-500/20 hover:bg-red-500/40 border border-red-500/40 text-red-300 rounded-xl transition">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function addSingleQuestion() {
+            const qText = document.getElementById('inputQuestionText').value.trim();
+            const optA = document.getElementById('inputOptA').value.trim();
+            const optB = document.getElementById('inputOptB').value.trim();
+            const optC = document.getElementById('inputOptC').value.trim();
+            const optD = document.getElementById('inputOptD').value.trim();
+            const correct = document.getElementById('inputCorrectAnswer').value;
+
+            if (!qText || !optA || !optB || !optC || !optD) {
+                alert("Harap lengkapi semua bidang pertanyaan dan opsi jawaban.");
+                return;
+            }
+
+            questions.push({
+                id: Date.now(),
+                question: qText,
+                options: { A: optA, B: optB, C: optC, D: optD },
+                correct: correct
+            });
+
+            document.getElementById('inputQuestionText').value = '';
+            document.getElementById('inputOptA').value = '';
+            document.getElementById('inputOptB').value = '';
+            document.getElementById('inputOptC').value = '';
+            document.getElementById('inputOptD').value = '';
+
+            renderManageQuestionsList();
+            renderHostQuestion();
+            audio.click();
+        }
+
+        function deleteQuestion(idx) {
+            if (questions.length <= 1) {
+                alert("Minimal harus menyisakan 1 soal kuis!");
+                return;
+            }
+            questions.splice(idx, 1);
+            if (currentQuestionIdx >= questions.length) currentQuestionIdx = 0;
+            renderManageQuestionsList();
+            renderHostQuestion();
+            audio.click();
+        }
+
+        function downloadQuestionTemplate() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(questions, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", "quiz_questions_template.json");
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (Array.isArray(imported) && imported.length > 0 && imported[0].question && imported[0].options) {
+                        questions = imported;
+                        currentQuestionIdx = 0;
+                        renderManageQuestionsList();
+                        renderHostQuestion();
+                        alert(`Berhasil mengimpor ${imported.length} soal!`);
+                    } else {
+                        alert("Format JSON tidak valid.");
+                    }
+                } catch (err) {
+                    alert("Gagal membaca file JSON.");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // ==========================================
+        // PLAYER SCREEN LOGIC
+        // ==========================================
+        let selectedAvatar = "🦊";
+
+        function initAvatarPicker() {
+            const picker = document.getElementById('avatarPicker');
+            picker.innerHTML = '';
+            avatarList.forEach((av, idx) => {
+                const btn = document.createElement('button');
+                btn.className = `p-2.5 rounded-xl text-xl border transition ${idx === 0 ? 'bg-indigo-600 border-indigo-400' : 'bg-slate-800 border-slate-700'}`;
+                btn.innerText = av;
+                btn.onclick = () => {
+                    audio.click();
+                    selectedAvatar = av;
+                    Array.from(picker.children).forEach(c => c.className = 'p-2.5 rounded-xl text-xl border transition bg-slate-800 border-slate-700');
+                    btn.className = 'p-2.5 rounded-xl text-xl border transition bg-indigo-600 border-indigo-400';
+                };
+                picker.appendChild(btn);
+            });
+        }
+
+        function showPlayerScreen(screenId) {
+            const screens = ['playerJoinScreen', 'playerWaitingScreen', 'playerGameScreen', 'playerLockedScreen', 'playerResultScreen'];
+            screens.forEach(s => {
+                const el = document.getElementById(s);
+                if (s === screenId) el.classList.remove('hidden');
+                else el.classList.add('hidden');
+            });
+        }
+
+        function playerJoinGame() {
+            const roomCodeInput = document.getElementById('playerInputRoomCode').value.trim().toUpperCase();
+            const nameInput = document.getElementById('playerInputName').value.trim();
+
+            if (!nameInput) {
+                alert("Masukkan Nama Peserta terlebih dahulu.");
+                return;
+            }
+
+            myPlayerProfile = {
+                id: Date.now(),
+                name: nameInput,
+                score: 0,
+                currentAnswer: null,
+                isCorrect: null,
+                avatar: selectedAvatar
+            };
+
+            audio.click();
+
+            document.getElementById('playerWaitingName').innerText = `Halo, ${myPlayerProfile.name}!`;
+            document.getElementById('playerWaitingAvatar').innerText = myPlayerProfile.avatar;
+            document.getElementById('playerCurrentName').innerText = myPlayerProfile.name;
+            document.getElementById('playerCurrentAvatar').innerText = myPlayerProfile.avatar;
+
+            showPlayerScreen('playerWaitingScreen');
+
+            // Register player to host channel
+            sendBroadcastMsg({
+                type: 'PLAYER_JOINED',
+                player: myPlayerProfile
+            });
+
+            // Request sync from Host
+            sendBroadcastMsg({ type: 'REQUEST_SYNC' });
+        }
+
+        function playerSubmitAnswer(answerChoice) {
+            if (!myPlayerProfile || myPlayerProfile.currentAnswer !== null || isAnswersRevealed) return;
+
+            audio.click();
+            triggerVibration([50]);
+            myPlayerProfile.currentAnswer = answerChoice;
+
+            showPlayerScreen('playerLockedScreen');
+
+            sendBroadcastMsg({
+                type: 'PLAYER_SUBMIT_ANSWER',
+                playerId: myPlayerProfile.id,
+                answer: answerChoice
+            });
+        }
+
+        // ==========================================
+        // PODIUM & CONFETTI CELEBRATION
+        // ==========================================
+        function showPodiumModal() {
+            const container = document.getElementById('podiumCardsContainer');
+            container.innerHTML = '';
+
+            const sorted = [...players].sort((a, b) => b.score - a.score);
+
+            if (sorted.length === 0) {
+                container.innerHTML = `<p class="col-span-3 text-xs text-slate-400 italic py-8">Belum ada peserta terdaftar.</p>`;
+            } else {
+                const podiumOrder = [sorted[1], sorted[0], sorted[2]];
+                const heights = ["h-28", "h-36", "h-20"];
+                const ranks = ["2", "1", "3"];
+                const badgeColors = ["bg-slate-400", "bg-amber-400 text-slate-950", "bg-amber-700"];
+
+                podiumOrder.forEach((p, idx) => {
+                    if (!p) return;
+                    const card = document.createElement('div');
+                    card.className = "flex flex-col items-center justify-end";
+                    card.innerHTML = `
+                        <div class="text-2xl mb-1">${p.avatar}</div>
+                        <span class="font-bold text-xs text-white truncate max-w-[80px]">${p.name}</span>
+                        <span class="text-[10px] text-amber-300 font-bold mb-1">${p.score} Pts</span>
+                        <div class="${heights[idx]} w-full rounded-t-2xl ${badgeColors[idx]} flex items-center justify-center font-game text-xl font-black shadow-lg">
+                            #${ranks[idx]}
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            }
+
+            document.getElementById('podiumModal').classList.remove('hidden');
+            document.getElementById('podiumModal').classList.add('flex');
+            triggerFireworks();
+            audio.fanfare();
+        }
+
+        function closePodiumModal() {
+            document.getElementById('podiumModal').classList.add('hidden');
+            document.getElementById('podiumModal').classList.remove('flex');
+        }
+
+        function triggerFireworks() {
+            if (typeof confetti === 'function') {
+                confetti({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { y: 0.6 }
+                });
+            }
+        }
+
+        // ==========================================
+        // MODAL HANDLERS
+        // ==========================================
+        function openShareModal() {
+            document.getElementById('shareModal').classList.remove('hidden');
+            document.getElementById('shareModal').classList.add('flex');
+        }
+        function closeShareModal() {
+            document.getElementById('shareModal').classList.add('hidden');
+            document.getElementById('shareModal').classList.remove('flex');
+        }
+    </script>
+</body>
+</html>
